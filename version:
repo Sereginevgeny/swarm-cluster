@@ -1,0 +1,55 @@
+ervices:
+  elasticsearch:
+    image: elasticsearch:7.17.13
+    environment:
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+    volumes:
+      - glusterfs_data:/usr/share/elasticsearch/data
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+        reservations:
+          memory: 1g
+    networks:
+      - proxy
+
+  fluentd:
+    image: fluentd:latest
+    ports:
+      - "24224:24224"
+      - "24224:24224/udp"
+    volumes:
+      - ./fluentd.conf:/fluentd/etc/fluentd.conf
+    deploy:
+      mode: global
+    networks:
+      - proxy
+
+  kibana:
+    image: kibana:7.17.13
+    container_name: kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.kibana.rule=Host(`kibana.localhost`)"
+      - "traefik.http.routers.kibana.entrypoints=http"
+      - "traefik.http.routers.kibana-service.loadbalancer.server.port=8080"
+      - "traefik.http.middlewares.kibana-auth.basicauth.users=rebrainme:$$apr1$$NAZtjqSh$$OFPHUyXMtmuJ98hoXDcAv/"
+      - "traefik.http.routers.kibana.middlewares=kibana-auth"
+    expose:
+      - "8080"
+    depends_on:
+      - elasticsearch
+    networks:
+      - proxy
+
+volumes:
+  glusterfs_data:
+    driver: local
+
+networks:
+  proxy:
+    external: true

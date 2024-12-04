@@ -1,0 +1,87 @@
+version: "3"
+services:
+
+# EFK Stack
+
+  fluentd:
+    image: fluentd:my
+    links:
+      - elasticsearch
+    depends_on:
+      - elasticsearch
+    ports:
+      - 24224:24224
+      - 24224:24224/udp
+    networks:
+      - voting_test
+    deploy:
+      mode: global
+#      replicas:1
+#      replicas: 1
+  
+
+  elasticsearch:
+    image: elasticsearch:8.8.0
+    expose:
+      - 9200:9200
+      - 9300:9300
+    environment:
+      - discovery.type=single-node
+    volumes:
+      - ./es/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
+      - esdata:/usr/share/elasticsearch/data
+
+    deploy:
+      mode: global
+#      placement:
+#        constraints:
+#          - node.labels.backend == true
+#      replicas: 1
+      resources:
+        limits:
+          memory: 1g
+
+    networks:
+      - voting_test
+
+  kibana:
+    image: kibana:8.8.0
+    links:
+      - elasticsearch
+    depends_on:
+      - elasticsearch
+#    ports:
+#      - 5601:5601
+    environment:
+      - TZ=Asia/Kathmandu
+    volumes:
+      - ./kibana/kibana.yml:/usr/share/kibana/config/kibana.yml
+
+    deploy:
+      mode: replicated
+
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.kibana.rule=Host(`kibana.84.201.156.116.nip.io`)"
+#        - "traefik.http.middlewares.auth.basicauth.users=rebrainme:$2y$05$mCY060Pj1k3PdlZEhgSrEOIo3iL6HStPhwlcYeQsbSHnKNd/C4KAO"
+        - "traefik.http.routers.kibana.middlewares=auth"
+#      - "traefik.protocol=http"      
+#      - "traefik.port=5601"
+        - "traefik.http.services.kibana.loadbalancer.server.port=5601"
+#      - traefik.http.routers.kibana.middlewares=kibana-auth
+#      - traefik.http.middlewares.kibana-auth.basicauth.users=rebrainme:$$2y$05$RjwObTfGyHrnoIugsv3qKOv8oZ.UK1KjcWdzLGkdiyl8YduFgmV.i
+
+#      - "traefik.http.middlewares.traefik-auth.basicauth.users=rebrainme:$$2y$05$RjwObTfGyHrnoIugsv3qKOv8oZ.UK1KjcWdzLGkdiyl8YduFgmV.i"
+#      - "traefik.http.routers.traefik_http.middlewares: basic-auth-global"
+
+    networks:
+      - voting_test
+  
+volumes:
+  esdata:
+    name: esdata
+
+networks:
+  voting_test:
+    external: true
+

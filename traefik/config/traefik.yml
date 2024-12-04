@@ -1,0 +1,20 @@
+api:
+  insecure: true
+  dashboard: true
+
+entryPoints:
+  http:
+    address: ":80"
+
+providers:
+  docker:
+    network: "proxy"
+    exposedByDefault: false
+    endpoint: "unix://var/run/docker.sock"
+    defaultRule: "Host(`{{ trimPrefix `/` .Name }}.docker.localhost`)"
+
+log:
+  level: DEBUG
+
+serversTransport:
+  insecureSkipVerify: true

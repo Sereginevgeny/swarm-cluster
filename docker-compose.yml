@@ -1,0 +1,123 @@
+version: "3"
+services:
+
+  nginx-proxy:
+    image: nginx:stable-alpine
+
+    networks:
+    - voting_test
+
+#    ports:
+#      - 80:80
+    volumes:
+      - "./nginx/default.conf:/etc/nginx/conf.d/default.conf"
+    deploy:
+      mode: replicated
+#      replicas: 2
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.nginx-proxy.rule=Host(`voting.84.201.156.116.nip.io`)"
+#        - "traefik.http.routers.nginx.rule=voting(`nip.io`)"
+        - "traefik.http.services.nginx-proxy.loadbalancer.server.port=80"
+        
+
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+
+
+  voting:
+    image: voting:my
+#    restart: always
+    environment:
+      - APP_NAME=VoteApp
+      - APP_ENV=production
+      - APP_KEY=base64:WcIFQQUYOUUH4oWc/SDBHQ6XGvYoTOryXMkfUNbZJPM=
+      - APP_DEBUG="false"
+      - APP_URL=http://example.com
+      - LOG_CHANNEL=stderr
+      - DB_CONNECTION=mysql
+      - DB_HOST=mysql
+      - DB_PORT="3306"
+      - DB_DATABASE=voting
+      - DB_USERNAME=voting
+      - DB_PASSWORD=voting
+      - REDIS_HOST=redis
+      - REDIS_PASSWORD=""
+      - SESSION_DRIVER=redis
+      - SESSION_CONNECTION=session
+      - CACHE_DRIVER=redis
+    deploy:
+      mode: replicated
+#      replicas: 1
+#      endpoint_mode: vip
+#      placement:
+#        constraints:
+#          - node.role == worker
+
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+
+    ports:
+      - 9000
+    
+    networks:
+      - voting_test
+
+    depends_on:
+      - mysql
+      - redis 
+
+  mysql:
+    image: mysql:5.7
+    restart: always
+    environment:
+      MYSQL_DATABASE: 'voting'
+      MYSQL_USER: 'voting'
+      MYSQL_ROOT_PASSWORD: 'password'
+      MYSQL_PASSWORD: 'voting'
+      MYSQL_ROOT_HOST: '%'
+    ports:
+      - "3306:3306"
+    expose:
+      - "3306"
+
+    networks:
+      - voting_test
+
+    deploy:
+      mode: global
+
+
+
+
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+
+
+  redis:
+    image: 'redis:alpine'
+    restart: always
+    environment:
+      - REDIS_PORT=6379
+      - REDIS_DATABASES=16
+    expose:
+      - "6379"
+    networks:
+      - voting_test
+
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+        
+
+networks:
+  voting_test:
+    external: true
+
